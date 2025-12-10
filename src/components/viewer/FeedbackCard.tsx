@@ -1,27 +1,36 @@
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { MessageSquare, ThumbsUp, ThumbsDown, Send } from 'lucide-react';
 
-export function FeedbackCard() {
-  const [feedback, setFeedback] = useState<'agree' | 'disagree' | null>(null);
-  const [note, setNote] = useState('');
+interface FeedbackCardProps {
+  selection: 'agree' | 'disagree' | null;
+  note: string;
+  onSelectionChange: (selection: 'agree' | 'disagree' | null) => void;
+  onNoteChange: (note: string) => void;
+}
+
+export function FeedbackCard({
+  selection,
+  note,
+  onSelectionChange,
+  onNoteChange,
+}: FeedbackCardProps) {
 
   const handleSubmit = () => {
-    if (!feedback) {
+    if (!selection) {
       toast.error('Please select Agree or Disagree first');
       return;
     }
     
     toast.success('Feedback sent to model training', {
-      description: `Your ${feedback === 'agree' ? 'agreement' : 'disagreement'} has been recorded.`,
+      description: `Your ${selection === 'agree' ? 'agreement' : 'disagreement'} has been recorded.`,
     });
     
     // Reset after submission
-    setFeedback(null);
-    setNote('');
+    onSelectionChange(null);
+    onNoteChange('');
   };
 
   return (
@@ -36,20 +45,20 @@ export function FeedbackCard() {
       {/* Agreement Buttons */}
       <div className="flex gap-3 mb-4">
         <Button
-          variant={feedback === 'agree' ? 'secondary' : 'outline'}
+          variant={selection === 'agree' ? 'secondary' : 'outline'}
           className={cn(
             "flex-1 gap-2",
-            feedback === 'agree' && "shadow-glow"
+            selection === 'agree' && "shadow-glow"
           )}
-          onClick={() => setFeedback('agree')}
+          onClick={() => onSelectionChange('agree')}
         >
           <ThumbsUp className="w-4 h-4" />
           Agree with AI
         </Button>
         <Button
-          variant={feedback === 'disagree' ? 'destructive' : 'outline'}
+          variant={selection === 'disagree' ? 'destructive' : 'outline'}
           className="flex-1 gap-2"
-          onClick={() => setFeedback('disagree')}
+          onClick={() => onSelectionChange('disagree')}
         >
           <ThumbsDown className="w-4 h-4" />
           Disagree with AI
@@ -60,7 +69,7 @@ export function FeedbackCard() {
       <Textarea
         placeholder="Add a note or correction..."
         value={note}
-        onChange={(e) => setNote(e.target.value)}
+        onChange={(e) => onNoteChange(e.target.value)}
         className="mb-4 min-h-[80px] resize-none"
       />
 

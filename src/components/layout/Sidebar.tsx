@@ -1,12 +1,9 @@
-import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
   ClipboardList,
-  Scan,
   GitCompare,
   BarChart3,
-  Settings,
   ChevronLeft,
   ChevronRight,
   Stethoscope,
@@ -15,26 +12,18 @@ import {
   Droplet,
   CircleDot,
   Heart,
-  Menu,
+  Upload,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import skolynLogo from '@/assets/skolyn-logo.svg';
+import skolynSmallLogo from '@/assets/skolyn-small-logo.png';
+import { Link } from 'react-router-dom';
 
 const mainNavItems = [
-  { path: '/', label: 'Worklist', icon: ClipboardList },
-  { path: '/viewer', label: 'Viewer', icon: Scan },
+  { path: '/', label: 'Analyze', icon: Upload },
+  { path: '/recent-analyses', label: 'Recent Analyses', icon: ClipboardList },
   { path: '/comparison', label: 'Comparison', icon: GitCompare },
   { path: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { path: '/settings', label: 'Settings', icon: Settings },
-];
-
-const diseaseModules = [
-  { id: 'pneumonia', label: 'Pneumonia', icon: Stethoscope },
-  { id: 'tuberculosis', label: 'Tuberculosis', icon: Bug },
-  { id: 'covid19', label: 'COVID-19', icon: Activity },
-  { id: 'pleural-effusion', label: 'Pleural Effusion', icon: Droplet },
-  { id: 'lung-nodules', label: 'Lung Nodules', icon: CircleDot },
-  { id: 'cardiomegaly', label: 'Cardiomegaly', icon: Heart },
 ];
 
 interface SidebarProps {
@@ -46,7 +35,6 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: SidebarProps) {
   const location = useLocation();
-  const [activeDiseaseModule, setActiveDiseaseModule] = useState<string | null>(null);
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
@@ -55,18 +43,22 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
         "flex items-center h-16 px-4 border-b border-sidebar-border",
         collapsed ? "justify-center" : "justify-between"
       )}>
-        {!collapsed && (
-          <img 
-            src={skolynLogo} 
-            alt="Skolyn" 
-            className="h-8 w-auto"
-          />
-        )}
-        {collapsed && (
-          <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center">
-            <Scan className="w-5 h-5 text-secondary-foreground" />
-          </div>
-        )}
+        <Link to="/" className="flex items-center gap-2">
+          {!collapsed && (
+            <img 
+              src={skolynLogo} 
+              alt="Skolyn" 
+              className="h-8 w-auto"
+            />
+          )}
+          {collapsed && (
+            <img
+              src={skolynSmallLogo}
+              alt="Skolyn"
+              className="h-8 w-8"
+            />
+          )}
+        </Link>
         <Button
           variant="ghost"
           size="icon-sm"
@@ -80,8 +72,16 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
       {/* Main Navigation */}
       <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
         {mainNavItems.map((item) => {
-          const isActive = location.pathname === item.path || 
-            (item.path === '/viewer' && location.pathname.startsWith('/viewer'));
+          const isAnalyzeActive = location.pathname === '/' ;
+          const isRecentActive = location.pathname === '/recent-analyses';
+
+          const isActive =
+            (item.path === '/' && isAnalyzeActive) ||
+            (item.path === '/recent-analyses' && isRecentActive) ||
+            (item.path !== '/' &&
+              item.path !== '/recent-analyses' &&
+              (location.pathname === item.path ||
+                (item.path === '/viewer' && location.pathname.startsWith('/viewer'))));
           
           return (
             <NavLink
@@ -101,43 +101,6 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
             </NavLink>
           );
         })}
-
-        {/* Divider */}
-        <div className={cn("my-4", collapsed ? "mx-2" : "mx-3")}>
-          <div className="h-px bg-sidebar-border" />
-        </div>
-
-        {/* Disease Modules */}
-        {!collapsed && (
-          <div className="px-3 mb-2">
-            <span className="text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider">
-              Disease Modules
-            </span>
-          </div>
-        )}
-        
-        <div className="space-y-1">
-          {diseaseModules.map((module) => {
-            const isActive = activeDiseaseModule === module.id;
-            
-            return (
-              <button
-                key={module.id}
-                onClick={() => setActiveDiseaseModule(isActive ? null : module.id)}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200",
-                  collapsed ? "justify-center" : "",
-                  isActive
-                    ? "bg-secondary/20 text-secondary border border-secondary/30"
-                    : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground/80"
-                )}
-              >
-                <module.icon className="w-4 h-4 flex-shrink-0" />
-                {!collapsed && <span>{module.label}</span>}
-              </button>
-            );
-          })}
-        </div>
       </nav>
 
       {/* Footer */}

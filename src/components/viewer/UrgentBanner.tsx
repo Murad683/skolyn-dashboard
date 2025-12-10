@@ -1,6 +1,4 @@
-import { AlertTriangle, ExternalLink } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
+import { AlertTriangle } from 'lucide-react';
 
 interface UrgentBannerProps {
   disease: string;
@@ -8,8 +6,6 @@ interface UrgentBannerProps {
 }
 
 export function UrgentBanner({ disease, severity }: UrgentBannerProps) {
-  const navigate = useNavigate();
-
   return (
     <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 flex items-center justify-between animate-fade-in">
       <div className="flex items-center gap-3">
@@ -22,14 +18,6 @@ export function UrgentBanner({ disease, severity }: UrgentBannerProps) {
             {severity} severity {disease} suspected – requires immediate review
           </p>
         </div>
-      </div>
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={() => navigate('/')}>
-          View in Worklist
-        </Button>
-        <Button variant="destructive" size="sm" className="gap-1.5">
-          View details <ExternalLink className="w-3.5 h-3.5" />
-        </Button>
       </div>
     </div>
   );

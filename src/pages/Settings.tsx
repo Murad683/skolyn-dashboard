@@ -1,25 +1,17 @@
-import { useState, useEffect } from 'react';
-import { useTheme } from 'next-themes';
+import { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { Monitor, Brain, User, Save, Sun, Moon } from 'lucide-react';
+import { Monitor, Brain, User, Save, LogOut } from 'lucide-react';
 
 const Settings = () => {
-  const { theme, setTheme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
   const [heatmapOpacity, setHeatmapOpacity] = useState([50]);
   const [defaultViewerMode, setDefaultViewerMode] = useState<'overlay' | 'side-by-side'>('overlay');
   const [selectedModel, setSelectedModel] = useState('v1.3');
   const [role, setRole] = useState<'Radiologist' | 'Admin' | 'Researcher'>('Radiologist');
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const models = [
     { id: 'v1.3', name: 'Model v1.3 – Chest X-ray', description: 'Latest stable release with improved pneumonia detection' },
@@ -31,7 +23,11 @@ const Settings = () => {
     toast.success('Settings saved successfully');
   };
 
-  const currentTheme = mounted ? resolvedTheme : 'light';
+  const handleSignOut = () => {
+    toast.success('Signed out (demo)', {
+      description: 'Session ended for demo purposes.',
+    });
+  };
 
   return (
     <DashboardLayout pageTitle="Settings">
@@ -84,32 +80,6 @@ const Settings = () => {
               </div>
             </div>
 
-            {/* Theme */}
-            <div>
-              <label className="text-sm font-medium text-foreground mb-3 block">
-                Theme
-              </label>
-              <div className="flex bg-muted rounded-lg p-1 w-fit">
-                {(['light', 'dark'] as const).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setTheme(t)}
-                    className={cn(
-                      "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all capitalize",
-                      currentTheme === t
-                        ? "bg-card text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    {t === 'light' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                    {t}
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Your preference is saved automatically.
-              </p>
-            </div>
           </div>
         </div>
 
@@ -211,6 +181,14 @@ const Settings = () => {
           <Button onClick={handleSave} className="gap-2">
             <Save className="w-4 h-4" />
             Save Settings
+          </Button>
+        </div>
+
+        {/* Sign Out */}
+        <div className="flex justify-end">
+          <Button variant="outline" className="gap-2 text-destructive border-destructive/50 hover:bg-destructive/10" onClick={handleSignOut}>
+            <LogOut className="w-4 h-4" />
+            Sign out
           </Button>
         </div>
       </div>

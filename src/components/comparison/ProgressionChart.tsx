@@ -1,36 +1,45 @@
-import { PastScan } from '@/data/mockData';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ProgressionChartProps {
-  scans: PastScan[];
-  currentScore: number;
+  scans: { id: string; date: string; aiScore?: number }[];
+  diseaseName?: string;
 }
 
-export function ProgressionChart({ scans, currentScore }: ProgressionChartProps) {
-  // Prepare data for chart (reverse to show oldest first)
-  const chartData = [...scans].reverse().map(scan => ({
-    date: new Date(scan.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    score: scan.aiScore,
-  }));
+export function ProgressionChart({ scans, diseaseName }: ProgressionChartProps) {
+  const chartData = [...scans]
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .filter((scan) => typeof scan.aiScore === 'number')
+    .map(scan => ({
+      date: new Date(scan.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      score: scan.aiScore as number,
+    }));
 
-  // Add current
-  chartData.push({
-    date: 'Current',
-    score: currentScore,
-  });
+  if (!chartData.length) {
+    return (
+      <div className="bg-card rounded-xl shadow-soft border border-border/30 p-5 animate-fade-in">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">
+            {diseaseName ? `${diseaseName} Progression` : 'Disease Progression'}
+          </h3>
+          <span className="text-xs text-muted-foreground">Trend: N/A</span>
+        </div>
+        <p className="text-sm text-muted-foreground">No scans available to plot progression.</p>
+      </div>
+    );
+  }
 
-  // Calculate trend
-  const firstScore = scans[scans.length - 1]?.aiScore || currentScore;
-  const trend = currentScore - firstScore;
-  const trendLabel = trend < -10 ? 'Improving' : trend > 10 ? 'Worsening' : 'Stable';
+  const firstScore = chartData[0]?.score ?? 0;
+  const lastScore = chartData[chartData.length - 1]?.score ?? 0;
+  const trend = lastScore - firstScore;
+  const trendLabel = trend < -5 ? 'Improving' : trend > 5 ? 'Worsening' : 'Stable';
 
   return (
     <div className="bg-card rounded-xl shadow-soft border border-border/30 p-5 animate-fade-in">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">
-          Disease Progression
+          {diseaseName ? `${diseaseName} Progression` : 'Disease Progression'}
         </h3>
         <div className={cn(
           "flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium",
@@ -91,9 +100,9 @@ export function ProgressionChart({ scans, currentScore }: ProgressionChartProps)
 
       <div className="mt-4 pt-4 border-t border-border text-center">
         <p className="text-sm text-muted-foreground">
-          {trendLabel === 'Improving' && 'AI scores show consistent improvement over the monitoring period.'}
-          {trendLabel === 'Worsening' && 'AI scores indicate potential disease progression. Consider clinical correlation.'}
-          {trendLabel === 'Stable' && 'AI scores remain relatively stable across scans.'}
+          {trendLabel === 'Improving' && `AI scores show consistent improvement for ${diseaseName || 'this disease'} over the monitoring period.`}
+          {trendLabel === 'Worsening' && `AI scores indicate potential ${diseaseName || 'disease'} progression. Consider clinical correlation.`}
+          {trendLabel === 'Stable' && `AI scores for ${diseaseName || 'this disease'} remain relatively stable across scans.`}
         </p>
       </div>
     </div>

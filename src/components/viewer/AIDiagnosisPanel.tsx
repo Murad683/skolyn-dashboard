@@ -3,7 +3,7 @@ import { AIFindings } from '@/data/mockData';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { Brain, AlertTriangle, Info, Sparkles } from 'lucide-react';
+import { Brain, Info, Sparkles } from 'lucide-react';
 
 interface AIDiagnosisPanelProps {
   findings?: AIFindings;
@@ -41,6 +41,20 @@ export function AIDiagnosisPanel({ findings, isAnalyzing = false }: AIDiagnosisP
       case 'High': return 'high';
       default: return 'neutral';
     }
+  };
+
+  const getZoneSeverity = (zoneName: string) => {
+    const match = findings?.affectedZones.find(
+      (zone) => zone.zone.toLowerCase() === zoneName.toLowerCase()
+    );
+    return match?.severity || 'Normal';
+  };
+
+  const zoneFillClass = (zoneName: string) => {
+    const severity = getZoneSeverity(zoneName);
+    if (severity === 'High') return "fill-destructive/40 stroke-destructive";
+    if (severity === 'Moderate') return "fill-secondary/40 stroke-secondary";
+    return "fill-muted/30 stroke-border";
   };
 
   if (isAnalyzing && analysisProgress < 100) {
@@ -168,17 +182,84 @@ export function AIDiagnosisPanel({ findings, isAnalyzing = false }: AIDiagnosisP
         </div>
       )}
 
-      {/* Explanation Summary */}
-      <div className="border-t border-border pt-4">
+      {/* Affected Lung Zones */}
+      <div className="border border-border/60 rounded-lg p-4 mb-4">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-          Model Explanation (Summary)
+          Affected Lung Zones
         </p>
-        <ul className="space-y-2">
-          {findings.explanations.slice(0, 3).map((explanation, index) => (
-            <li key={index} className="flex items-start gap-2 text-sm text-muted-foreground">
-              <span className="w-1.5 h-1.5 rounded-full bg-secondary mt-2 flex-shrink-0" />
-              <span>{explanation}</span>
-            </li>
+        <div className="flex flex-col items-center gap-3">
+          <div className="relative w-48 h-40">
+            <svg viewBox="0 0 200 160" className="w-full h-full">
+              <g transform="translate(20, 10)">
+                <path
+                  d="M60 0 Q0 20 10 50 L60 50 Z"
+                  className={cn("transition-all duration-300", zoneFillClass('Right Upper'))}
+                  strokeWidth="2"
+                />
+                <path
+                  d="M10 50 Q0 70 10 90 L60 90 L60 50 Z"
+                  className={cn("transition-all duration-300", zoneFillClass('Right Middle'))}
+                  strokeWidth="2"
+                />
+                <path
+                  d="M10 90 Q0 120 30 140 Q60 140 60 90 Z"
+                  className={cn("transition-all duration-300", zoneFillClass('Right Lower'))}
+                  strokeWidth="2"
+                />
+              </g>
+
+              <g transform="translate(110, 10)">
+                <path
+                  d="M10 0 Q70 20 60 50 L10 50 Z"
+                  className={cn("transition-all duration-300", zoneFillClass('Left Upper'))}
+                  strokeWidth="2"
+                />
+                <path
+                  d="M60 50 Q70 70 60 90 L10 90 L10 50 Z"
+                  className={cn("transition-all duration-300", zoneFillClass('Left Middle'))}
+                  strokeWidth="2"
+                />
+                <path
+                  d="M60 90 Q70 120 40 140 Q10 140 10 90 Z"
+                  className={cn("transition-all duration-300", zoneFillClass('Left Lower'))}
+                  strokeWidth="2"
+                />
+              </g>
+
+              <text x="50" y="35" className="fill-muted-foreground text-[8px] font-medium">RU</text>
+              <text x="50" y="75" className="fill-muted-foreground text-[8px] font-medium">RM</text>
+              <text x="50" y="120" className="fill-muted-foreground text-[8px] font-medium">RL</text>
+              <text x="140" y="35" className="fill-muted-foreground text-[8px] font-medium">LU</text>
+              <text x="140" y="75" className="fill-muted-foreground text-[8px] font-medium">LM</text>
+              <text x="140" y="120" className="fill-muted-foreground text-[8px] font-medium">LL</text>
+            </svg>
+          </div>
+
+          <div className="flex justify-center gap-4">
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded bg-destructive/40 border border-destructive" />
+              <span className="text-xs text-muted-foreground">High</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded bg-secondary/40 border border-secondary" />
+              <span className="text-xs text-muted-foreground">Moderate</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded bg-muted/30 border border-border" />
+              <span className="text-xs text-muted-foreground">Normal</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Explanation */}
+      <div className="border border-border/60 rounded-lg p-4">
+        <p className="text-sm font-semibold text-foreground mb-2">
+          Why the AI thinks this is {findings.primaryDisease}
+        </p>
+        <ul className="list-disc pl-5 space-y-2 text-sm text-muted-foreground">
+          {findings.explanations.map((explanation, index) => (
+            <li key={index}>{explanation}</li>
           ))}
         </ul>
       </div>
