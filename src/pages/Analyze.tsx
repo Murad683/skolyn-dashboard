@@ -172,7 +172,14 @@ const Analyze = () => {
                   className="hidden"
                   onChange={(e) => handleFileChange(e.target.files)}
                 />
-                <Button type="button" variant="secondary" onClick={() => fileInputRef.current?.click()}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fileInputRef.current?.click();
+                  }}
+                >
                   Choose file
                 </Button>
               </div>
