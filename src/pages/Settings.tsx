@@ -10,14 +10,7 @@ import { Monitor, Brain, User, Save, LogOut } from 'lucide-react';
 const Settings = () => {
   const [heatmapOpacity, setHeatmapOpacity] = useState([50]);
   const [defaultViewerMode, setDefaultViewerMode] = useState<'overlay' | 'side-by-side'>('overlay');
-  const [selectedModel, setSelectedModel] = useState('v1.3');
   const [role, setRole] = useState<'Radiologist' | 'Admin' | 'Researcher'>('Radiologist');
-
-  const models = [
-    { id: 'v1.3', name: 'Model v1.3 – Chest X-ray', description: 'Latest stable release with improved pneumonia detection' },
-    { id: 'v1.2', name: 'Model v1.2 – Chest X-ray', description: 'Previous stable version' },
-    { id: 'v1.1-beta', name: 'Model v1.1-beta – Multi-modal', description: 'Experimental multi-modal support' },
-  ];
 
   const handleSave = () => {
     toast.success('Settings saved successfully');
@@ -92,46 +85,11 @@ const Settings = () => {
 
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-foreground mb-3 block">
-                Current Model Version
-              </label>
-              <div className="space-y-2">
-                {models.map((model) => (
-                  <div
-                    key={model.id}
-                    onClick={() => setSelectedModel(model.id)}
-                    className={cn(
-                      "p-4 rounded-lg border-2 cursor-pointer transition-all",
-                      selectedModel === model.id
-                        ? "border-secondary bg-secondary/5"
-                        : "border-border hover:border-border/80"
-                    )}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-foreground">{model.name}</span>
-                      {selectedModel === model.id && (
-                        <Badge variant="secondary">Active</Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">{model.description}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">
-                Release Notes
-              </label>
-              <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
-                <p className="font-medium text-foreground mb-2">v1.3 Release Notes:</p>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>Improved pneumonia detection accuracy by 8%</li>
-                  <li>Reduced false positive rate for pleural effusion</li>
-                  <li>Enhanced heatmap resolution and coverage</li>
-                  <li>New support for lateral chest X-ray views</li>
-                </ul>
-              </div>
+              <p className="text-sm font-medium text-muted-foreground mb-1">Current model</p>
+              <p className="text-lg font-semibold text-foreground">Skolyn Sko-16</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Chest imaging classifier with explainable outputs and calibrated probabilities.
+              </p>
             </div>
           </div>
         </div>
@@ -176,17 +134,17 @@ const Settings = () => {
           </div>
         </div>
 
-        {/* Save Button */}
-        <div className="flex justify-end">
+        {/* Actions */}
+        <div className="flex justify-end gap-3 flex-wrap">
           <Button onClick={handleSave} className="gap-2">
             <Save className="w-4 h-4" />
             Save Settings
           </Button>
-        </div>
-
-        {/* Sign Out */}
-        <div className="flex justify-end">
-          <Button variant="outline" className="gap-2 text-destructive border-destructive/50 hover:bg-destructive/10" onClick={handleSignOut}>
+          <Button
+            variant="outline"
+            className="gap-2 text-destructive border-destructive/50 hover:bg-destructive/10"
+            onClick={handleSignOut}
+          >
             <LogOut className="w-4 h-4" />
             Sign out
           </Button>

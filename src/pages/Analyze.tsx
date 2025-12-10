@@ -64,6 +64,7 @@ const Analyze = () => {
   const [patientName, setPatientName] = useState('');
   const [age, setAge] = useState<number | ''>('');
   const [gender, setGender] = useState<'M' | 'F'>('M');
+  const [modality, setModality] = useState<Study['modality'] | ''>('');
   const [phase, setPhase] = useState<'idle' | 'uploading' | 'analyzing'>('idle');
 
   const handleFileChange = (files: FileList | null) => {
@@ -94,17 +95,31 @@ const Analyze = () => {
   }, [patientId, studies]);
 
   const handleSubmit = () => {
-    if (!fileChosen) return;
+    if (!fileChosen) {
+      toast.error('Please select a study file to start analysis.');
+      return;
+    }
+
+    const trimmedId = patientId.trim();
+    if (!trimmedId) {
+      toast.error('Please enter a patient ID.');
+      return;
+    }
+
+    if (!modality) {
+      toast.error('Please select modality.');
+      return;
+    }
 
     const studyId = `STU-${Date.now()}`;
     const now = new Date().toISOString();
     const newStudy: Study = {
       id: studyId,
-      patientId: patientId || `P-${Date.now()}`,
+      patientId: trimmedId,
       patientName: patientName || 'Unknown Patient',
       age: typeof age === 'number' && !Number.isNaN(age) ? age : 55,
       gender,
-      modality: 'X-ray',
+      modality,
       bodyRegion: 'Chest',
       dateTime: now,
       priority: 'Routine',
@@ -126,7 +141,7 @@ const Analyze = () => {
       updateStudy(studyId, (study) => ({
         ...study,
         status: 'AI Analyzed',
-        aiFindings: generateFindings('X-ray'),
+        aiFindings: generateFindings(modality),
       }));
       toast.success('Analysis complete', {
         description: `${newStudy.patientName} • ${newStudy.modality} ${newStudy.bodyRegion}`,
@@ -261,13 +276,28 @@ const Analyze = () => {
                   <option value="F">Female</option>
                 </select>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="modality">Modality</Label>
+                <select
+                  id="modality"
+                  value={modality}
+                  onChange={(e) => setModality(e.target.value as Study['modality'])}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  required
+                >
+                  <option value="">Select modality</option>
+                  <option value="X-ray">X-ray</option>
+                  <option value="CT">CT</option>
+                  <option value="MRI">MRI</option>
+                </select>
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-3">
               <Button
                 onClick={handleSubmit}
                 className="gap-2"
-                disabled={!fileChosen || phase !== 'idle'}
+                disabled={!fileChosen || !modality || !patientId.trim() || phase !== 'idle'}
               >
                 {phase === 'idle' ? (
                   <>

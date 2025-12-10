@@ -1,12 +1,9 @@
-import { Search, Filter } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface WorklistFiltersProps {
   statusFilter: string;
   setStatusFilter: (status: string) => void;
-  priorityFilter: string;
-  setPriorityFilter: (priority: string) => void;
   modalityFilter: string;
   setModalityFilter: (modality: string) => void;
   searchQuery: string;
@@ -14,14 +11,11 @@ interface WorklistFiltersProps {
 }
 
 const statusOptions = ['All', 'New', 'AI Analyzing', 'AI Analyzed', 'In Review', 'Finalized'];
-const priorityOptions = ['All', 'Urgent'];
 const modalityOptions = ['All', 'X-ray', 'CT', 'MRI'];
 
 export function WorklistFilters({
   statusFilter,
   setStatusFilter,
-  priorityFilter,
-  setPriorityFilter,
   modalityFilter,
   setModalityFilter,
   searchQuery,
@@ -64,27 +58,6 @@ export function WorklistFilters({
           </div>
         </div>
 
-        {/* Priority Filter */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-muted-foreground">Priority:</span>
-          <div className="flex bg-muted rounded-lg p-0.5">
-            {priorityOptions.map((priority) => (
-              <button
-                key={priority}
-                onClick={() => setPriorityFilter(priority)}
-                className={cn(
-                  "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
-                  priorityFilter === priority
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {priority}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Modality Filter */}
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-muted-foreground">Modality:</span>
@@ -118,19 +91,6 @@ export function WorklistFilters({
           >
             {statusOptions.map((status) => (
               <option key={status} value={status}>{status}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-muted-foreground">Priority</span>
-          <select
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
-            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            {priorityOptions.map((priority) => (
-              <option key={priority} value={priority}>{priority}</option>
             ))}
           </select>
         </div>

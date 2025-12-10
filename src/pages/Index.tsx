@@ -7,7 +7,6 @@ import { useStudies } from '@/context/StudiesContext';
 const Index = () => {
   const { studies } = useStudies();
   const [statusFilter, setStatusFilter] = useState('All');
-  const [priorityFilter, setPriorityFilter] = useState('All');
   const [modalityFilter, setModalityFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudy, setSelectedStudy] = useState<string | null>(null);
@@ -15,7 +14,6 @@ const Index = () => {
   const filteredStudies = useMemo(() => {
     return studies.filter((study) => {
       if (statusFilter !== 'All' && study.status !== statusFilter) return false;
-      if (priorityFilter === 'Urgent' && study.priority !== 'Urgent') return false;
       if (modalityFilter !== 'All' && study.modality !== modalityFilter) return false;
       
       if (searchQuery) {
@@ -30,7 +28,7 @@ const Index = () => {
       
       return true;
     });
-  }, [studies, statusFilter, priorityFilter, modalityFilter, searchQuery]);
+  }, [studies, statusFilter, modalityFilter, searchQuery]);
 
   const urgentCount = studies.filter(s => s.priority === 'Urgent').length;
   const newCount = studies.filter(s => s.status === 'New').length;
@@ -50,8 +48,6 @@ const Index = () => {
         <WorklistFilters
           statusFilter={statusFilter}
           setStatusFilter={setStatusFilter}
-          priorityFilter={priorityFilter}
-          setPriorityFilter={setPriorityFilter}
           modalityFilter={modalityFilter}
           setModalityFilter={setModalityFilter}
           searchQuery={searchQuery}
