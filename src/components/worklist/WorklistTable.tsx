@@ -26,7 +26,6 @@ export function WorklistTable({ studies, selectedStudy, onSelectStudy }: Worklis
   const getStatusVariant = (status: Study['status']) => {
     switch (status) {
       case 'New': return 'new';
-      case 'AI Analyzing': return 'review';
       case 'AI Analyzed': return 'analyzed';
       case 'In Review': return 'review';
       case 'Finalized': return 'finalized';

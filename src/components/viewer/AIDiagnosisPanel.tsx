@@ -3,7 +3,7 @@ import { AIFindings } from '@/data/mockData';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { Brain, Info, Sparkles } from 'lucide-react';
+import { Brain, AlertTriangle, Info, Sparkles } from 'lucide-react';
 
 interface AIDiagnosisPanelProps {
   findings?: AIFindings;
@@ -43,18 +43,28 @@ export function AIDiagnosisPanel({ findings, isAnalyzing = false }: AIDiagnosisP
     }
   };
 
-  const getZoneSeverity = (zoneName: string) => {
-    const match = findings?.affectedZones.find(
-      (zone) => zone.zone.toLowerCase() === zoneName.toLowerCase()
-    );
-    return match?.severity || 'Normal';
-  };
+  const lungZones = [
+    { id: 'right-upper', label: 'RU', name: 'Right Upper' },
+    { id: 'left-upper', label: 'LU', name: 'Left Upper' },
+    { id: 'right-middle', label: 'RM', name: 'Right Middle' },
+    { id: 'left-middle', label: 'LM', name: 'Left Middle' },
+    { id: 'right-lower', label: 'RL', name: 'Right Lower' },
+    { id: 'left-lower', label: 'LL', name: 'Left Lower' },
+  ];
 
-  const zoneFillClass = (zoneName: string) => {
-    const severity = getZoneSeverity(zoneName);
-    if (severity === 'High') return "fill-destructive/40 stroke-destructive";
-    if (severity === 'Moderate') return "fill-secondary/40 stroke-secondary";
-    return "fill-muted/30 stroke-border";
+  const isZoneAffected = (zoneName: string, severity: 'high' | 'moderate' = 'moderate') => {
+    if (!findings) return false;
+    const zoneKey = zoneName.toLowerCase().replace(' ', '-');
+    return findings.affectedZones.some(zone => {
+      const zoneNameLower = zone.toLowerCase();
+      const matchesZone = zoneNameLower.includes(zoneKey.split('-')[0]) && 
+                          zoneNameLower.includes(zoneKey.split('-')[1]);
+      if (!matchesZone) return false;
+      // Right Lower is typically high severity for pneumonia
+      if (severity === 'high' && zoneName === 'Right Lower') return true;
+      if (severity === 'moderate' && zoneName !== 'Right Lower') return true;
+      return false;
+    });
   };
 
   if (isAnalyzing && analysisProgress < 100) {
@@ -183,83 +193,123 @@ export function AIDiagnosisPanel({ findings, isAnalyzing = false }: AIDiagnosisP
       )}
 
       {/* Affected Lung Zones */}
-      <div className="border border-border/60 rounded-lg p-4 mb-4">
+      <div className="mb-4 border-t border-border pt-4">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
           Affected Lung Zones
         </p>
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex justify-center">
           <div className="relative w-48 h-40">
             <svg viewBox="0 0 200 160" className="w-full h-full">
+              {/* Right lung (viewer's left) */}
               <g transform="translate(20, 10)">
+                {/* Upper */}
                 <path
                   d="M60 0 Q0 20 10 50 L60 50 Z"
-                  className={cn("transition-all duration-300", zoneFillClass('Right Upper'))}
+                  className={cn(
+                    "transition-all duration-300",
+                    isZoneAffected('Right Upper', 'moderate')
+                      ? "fill-secondary/40 stroke-secondary" 
+                      : "fill-muted/30 stroke-border"
+                  )}
                   strokeWidth="2"
                 />
+                {/* Middle */}
                 <path
                   d="M10 50 Q0 70 10 90 L60 90 L60 50 Z"
-                  className={cn("transition-all duration-300", zoneFillClass('Right Middle'))}
+                  className={cn(
+                    "transition-all duration-300",
+                    isZoneAffected('Right Middle', 'moderate')
+                      ? "fill-secondary/40 stroke-secondary" 
+                      : "fill-muted/30 stroke-border"
+                  )}
                   strokeWidth="2"
                 />
+                {/* Lower */}
                 <path
                   d="M10 90 Q0 120 30 140 Q60 140 60 90 Z"
-                  className={cn("transition-all duration-300", zoneFillClass('Right Lower'))}
+                  className={cn(
+                    "transition-all duration-300",
+                    isZoneAffected('Right Lower', 'high')
+                      ? "fill-destructive/40 stroke-destructive" 
+                      : "fill-muted/30 stroke-border"
+                  )}
                   strokeWidth="2"
                 />
               </g>
 
+              {/* Left lung (viewer's right) */}
               <g transform="translate(110, 10)">
+                {/* Upper */}
                 <path
                   d="M10 0 Q70 20 60 50 L10 50 Z"
-                  className={cn("transition-all duration-300", zoneFillClass('Left Upper'))}
+                  className={cn(
+                    "transition-all duration-300",
+                    isZoneAffected('Left Upper', 'moderate')
+                      ? "fill-secondary/40 stroke-secondary" 
+                      : "fill-muted/30 stroke-border"
+                  )}
                   strokeWidth="2"
                 />
+                {/* Middle */}
                 <path
                   d="M60 50 Q70 70 60 90 L10 90 L10 50 Z"
-                  className={cn("transition-all duration-300", zoneFillClass('Left Middle'))}
+                  className={cn(
+                    "transition-all duration-300",
+                    isZoneAffected('Left Middle', 'moderate')
+                      ? "fill-secondary/40 stroke-secondary" 
+                      : "fill-muted/30 stroke-border"
+                  )}
                   strokeWidth="2"
                 />
+                {/* Lower */}
                 <path
                   d="M60 90 Q70 120 40 140 Q10 140 10 90 Z"
-                  className={cn("transition-all duration-300", zoneFillClass('Left Lower'))}
+                  className={cn(
+                    "transition-all duration-300",
+                    isZoneAffected('Left Lower', 'moderate')
+                      ? "fill-secondary/40 stroke-secondary" 
+                      : "fill-muted/30 stroke-border"
+                  )}
                   strokeWidth="2"
                 />
               </g>
 
+              {/* Labels */}
               <text x="50" y="35" className="fill-muted-foreground text-[8px] font-medium">RU</text>
               <text x="50" y="75" className="fill-muted-foreground text-[8px] font-medium">RM</text>
-              <text x="50" y="120" className="fill-muted-foreground text-[8px] font-medium">RL</text>
+              <text x="50" y="120" className={cn("text-[8px] font-medium", isZoneAffected('Right Lower', 'high') ? "fill-destructive" : "fill-muted-foreground")}>RL</text>
               <text x="140" y="35" className="fill-muted-foreground text-[8px] font-medium">LU</text>
               <text x="140" y="75" className="fill-muted-foreground text-[8px] font-medium">LM</text>
               <text x="140" y="120" className="fill-muted-foreground text-[8px] font-medium">LL</text>
             </svg>
           </div>
-
-          <div className="flex justify-center gap-4">
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded bg-destructive/40 border border-destructive" />
-              <span className="text-xs text-muted-foreground">High</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded bg-secondary/40 border border-secondary" />
-              <span className="text-xs text-muted-foreground">Moderate</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded bg-muted/30 border border-border" />
-              <span className="text-xs text-muted-foreground">Normal</span>
-            </div>
+        </div>
+        <div className="flex justify-center gap-4 mt-2">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-destructive/40 border border-destructive" />
+            <span className="text-xs text-muted-foreground">High</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-secondary/40 border border-secondary" />
+            <span className="text-xs text-muted-foreground">Moderate</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-muted/30 border border-border" />
+            <span className="text-xs text-muted-foreground">Normal</span>
           </div>
         </div>
       </div>
 
-      {/* Explanation */}
-      <div className="border border-border/60 rounded-lg p-4">
-        <p className="text-sm font-semibold text-foreground mb-2">
+      {/* Model Explanation */}
+      <div className="border-t border-border pt-4">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
           Why the AI thinks this is {findings.primaryDisease}
         </p>
-        <ul className="list-disc pl-5 space-y-2 text-sm text-muted-foreground">
+        <ul className="space-y-2 list-disc list-inside">
           {findings.explanations.map((explanation, index) => (
-            <li key={index}>{explanation}</li>
+            <li key={index} className="text-sm text-muted-foreground">
+              {explanation}
+            </li>
           ))}
         </ul>
       </div>

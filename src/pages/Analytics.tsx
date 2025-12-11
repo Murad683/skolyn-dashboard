@@ -1,141 +1,201 @@
-import { useMemo, useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { KPICard } from '@/components/analytics/KPICard';
 import { useStudies } from '@/context/StudiesContext';
-import { Study } from '@/data/mockData';
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LabelList } from 'recharts';
-import { Activity, Users, CheckCircle, TrendingUp } from 'lucide-react';
+import { 
+  BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, 
+  Tooltip, ResponsiveContainer, Legend, TooltipProps 
+} from 'recharts';
+import { Activity, Users, CheckCircle, TrendingUp, BarChart3, Upload, Calendar } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format } from 'date-fns';
+import { format, subDays, subMonths, isAfter, startOfMonth, endOfMonth } from 'date-fns';
 
-type RangeOption = '30d' | '6m' | '12m';
+type DateRange = '30d' | '6m' | '12m';
+
+interface MonthlyData {
+  month: string;
+  monthKey: string;
+  total: number;
+  agree: number;
+  disagree: number;
+  agreePercent: number;
+  disagreePercent: number;
+}
+
+const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+  if (active && payload && payload.length) {
+    const data = payload[0]?.payload as MonthlyData;
+    return (
+      <div className="bg-card border border-border rounded-lg shadow-medium p-3 min-w-[180px]">
+        <p className="text-sm font-semibold text-foreground mb-2">{data.month}</p>
+        <p className="text-xs text-muted-foreground">Total Scans (N): {data.total}</p>
+        <div className="mt-1 space-y-1">
+          <p className="text-xs">
+            <span className="inline-block w-3 h-3 rounded-sm mr-2" style={{ backgroundColor: '#00A99D' }} />
+            Agree: {data.agree} ({data.agreePercent.toFixed(1)}%)
+          </p>
+          <p className="text-xs">
+            <span className="inline-block w-3 h-3 rounded-sm mr-2" style={{ backgroundColor: '#030F4F' }} />
+            Disagree: {data.disagree} ({data.disagreePercent.toFixed(1)}%)
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
 
 const Analytics = () => {
+  const navigate = useNavigate();
   const { studies } = useStudies();
-  const [range, setRange] = useState<RangeOption>('30d');
+  const [dateRange, setDateRange] = useState<DateRange>('30d');
 
-  const rangeLabel = useMemo(() => {
-    if (range === '30d') return 'last 30 days';
-    if (range === '6m') return 'last 6 months';
-    return 'last 12 months';
-  }, [range]);
-
+  // Filter studies by date range
   const filteredStudies = useMemo(() => {
     const now = new Date();
-    return studies.filter((study) => {
-      const studyDate = new Date(study.dateTime);
-      if (range === '30d') {
-        const diff = (now.getTime() - studyDate.getTime()) / (1000 * 60 * 60 * 24);
-        return diff <= 30;
+    let cutoffDate: Date;
+    
+    switch (dateRange) {
+      case '30d':
+        cutoffDate = subDays(now, 30);
+        break;
+      case '6m':
+        cutoffDate = subMonths(now, 6);
+        break;
+      case '12m':
+        cutoffDate = subMonths(now, 12);
+        break;
+      default:
+        cutoffDate = subDays(now, 30);
+    }
+    
+    return studies.filter(s => isAfter(new Date(s.dateTime), cutoffDate));
+  }, [studies, dateRange]);
+
+  // Calculate analytics from filtered studies
+  const analyzedStudies = filteredStudies.filter(s => s.aiFindings);
+  const totalScans = filteredStudies.length;
+  const aiUsageRate = totalScans > 0 ? Math.round((analyzedStudies.length / totalScans) * 100) : 0;
+  const urgentCount = filteredStudies.filter(s => s.priority === 'Urgent').length;
+
+  // Calculate disease distribution
+  const diseaseMap = new Map<string, number>();
+  analyzedStudies.forEach(s => {
+    if (s.aiFindings?.primaryDisease) {
+      const disease = s.aiFindings.primaryDisease;
+      diseaseMap.set(disease, (diseaseMap.get(disease) || 0) + 1);
+    }
+  });
+  
+  const diseaseColors: Record<string, string> = {
+    'Pneumonia': '#030F4F',
+    'Normal': '#00A99D',
+    'Cardiomegaly': '#6366F1',
+    'Pleural Effusion': '#8B5CF6',
+    'Tuberculosis': '#EC4899',
+    'Other': '#94A3B8',
+  };
+  
+  const diseaseDistribution = Array.from(diseaseMap.entries()).map(([name, value]) => ({
+    name,
+    value,
+    color: diseaseColors[name] || diseaseColors['Other'],
+  }));
+
+  const topDisease = diseaseDistribution.length > 0 
+    ? [...diseaseDistribution].sort((a, b) => b.value - a.value)[0].name 
+    : 'N/A';
+
+  // Calculate monthly agreement trend data
+  const agreementTrendData = useMemo(() => {
+    if (filteredStudies.length === 0) return [];
+
+    const monthlyMap = new Map<string, { total: number; agree: number; disagree: number }>();
+    
+    filteredStudies.forEach(study => {
+      const date = new Date(study.dateTime);
+      const monthKey = format(date, 'yyyy-MM');
+      const monthLabel = format(date, 'MMM yyyy');
+      
+      if (!monthlyMap.has(monthKey)) {
+        monthlyMap.set(monthKey, { total: 0, agree: 0, disagree: 0 });
       }
-      const monthsDiff = (now.getFullYear() - studyDate.getFullYear()) * 12 + (now.getMonth() - studyDate.getMonth());
-      return monthsDiff < (range === '6m' ? 6 : 12);
-    });
-  }, [studies, range]);
-
-  const monthlyGroups = useMemo(() => {
-    const groups: Record<string, { date: Date; scans: Study[] }> = {};
-    filteredStudies.forEach((study) => {
-      const monthKey = format(new Date(study.dateTime), 'yyyy-MM-01');
-      if (!groups[monthKey]) {
-        groups[monthKey] = { date: new Date(monthKey), scans: [] };
+      
+      const data = monthlyMap.get(monthKey)!;
+      data.total++;
+      
+      // For this mock, we consider "analyzed" as "agree" and "not analyzed" as "disagree"
+      // In a real app, this would be based on radiologist feedback
+      if (study.aiFindings) {
+        data.agree++;
+      } else {
+        data.disagree++;
       }
-      groups[monthKey].scans.push(study);
     });
-    return Object.values(groups).sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [filteredStudies]);
 
-  const agreementData = useMemo(() => {
-    return monthlyGroups
-      .map(({ date, scans }) => {
-        const totalScans = scans.length;
-        if (totalScans === 0) return null;
-        let agreeCount = 0;
-        let disagreeCount = 0;
-
-        scans.forEach((s) => {
-          const ai = s.aiFindings;
-          if (ai && ai.probability >= 70) {
-            agreeCount += 1;
-          } else {
-            disagreeCount += 1;
-          }
-        });
-
-        const totalForPct = Math.max(agreeCount + disagreeCount, totalScans);
-        const agreePct = totalForPct ? Math.min(100, (agreeCount / totalForPct) * 100) : 0;
-        const disagreePct = totalForPct ? Math.max(0, 100 - agreePct) : 0;
-
+    // Convert to array and sort by date
+    const result: MonthlyData[] = Array.from(monthlyMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([monthKey, data]) => {
+        const agreePercent = data.total > 0 ? (data.agree / data.total) * 100 : 0;
+        const disagreePercent = data.total > 0 ? (data.disagree / data.total) * 100 : 0;
+        
         return {
-          month: format(date, 'MMM'),
-          totalScans,
-          agreeCount,
-          disagreeCount,
-          agreePct,
-          disagreePct,
+          month: format(new Date(monthKey + '-01'), 'MMM'),
+          monthKey,
+          total: data.total,
+          agree: data.agree,
+          disagree: data.disagree,
+          agreePercent: Math.min(agreePercent, 100), // Cap at 100
+          disagreePercent: Math.min(disagreePercent, 100), // Cap at 100
         };
       })
-      .filter(Boolean) as {
-        month: string;
-        totalScans: number;
-        agreeCount: number;
-        disagreeCount: number;
-        agreePct: number;
-        disagreePct: number;
-      }[];
-  }, [monthlyGroups]);
+      .filter(d => d.total > 0); // Only include months with data
 
-  const totalScans = filteredStudies.length;
-  const aiUsedCount = filteredStudies.filter((s) => s.aiFindings).length;
-  const agreeCount = agreementData.reduce((sum, m) => sum + m.agreeCount, 0);
-  const disagreeCount = agreementData.reduce((sum, m) => sum + m.disagreeCount, 0);
-  const aiUsageRate = totalScans ? Math.round((aiUsedCount / totalScans) * 1000) / 10 : 0;
-  const agreementRate = agreeCount + disagreeCount ? Math.round((agreeCount / (agreeCount + disagreeCount)) * 1000) / 10 : 0;
-
-  const topDisease = useMemo(() => {
-    const counts: Record<string, number> = {};
-    filteredStudies.forEach((s) => {
-      const disease = s.aiFindings?.primaryDisease || 'Normal';
-      counts[disease] = (counts[disease] || 0) + 1;
-    });
-    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-    return sorted[0]?.[0] || 'N/A';
+    return result;
   }, [filteredStudies]);
 
-  const accuracyOverTime = useMemo(() => {
-    return monthlyGroups.map(({ date, scans }) => {
-      const withAI = scans.filter((s) => s.aiFindings);
-      const average = withAI.length
-        ? withAI.reduce((sum, s) => sum + (s.aiFindings?.confidence || 0), 0) / withAI.length
-        : 0;
-      return {
-        month: format(date, 'MMM'),
-        accuracy: Math.round(average * 10) / 10,
-      };
-    });
-  }, [monthlyGroups]);
+  // Empty state
+  if (studies.length === 0) {
+    return (
+      <DashboardLayout pageTitle="Analytics">
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+          <div className="w-20 h-20 rounded-2xl bg-muted flex items-center justify-center mb-6">
+            <BarChart3 className="w-10 h-10 text-muted-foreground" />
+          </div>
+          <h2 className="text-2xl font-bold text-foreground mb-2">No data yet</h2>
+          <p className="text-muted-foreground mb-6 max-w-md">
+            Analytics will populate as you analyze medical images. Start by uploading your first study.
+          </p>
+          <Button onClick={() => navigate('/')} className="gap-2">
+            <Upload className="w-4 h-4" />
+            Start New Analysis
+          </Button>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
-  const diseaseDistribution = useMemo(() => {
-    const counts: Record<string, number> = {};
-    filteredStudies.forEach((s) => {
-      const disease = s.aiFindings?.primaryDisease || 'Normal';
-      counts[disease] = (counts[disease] || 0) + 1;
-    });
-    const palette = ['#030F4F', '#00A99D', '#6366F1', '#8B5CF6', '#EC4899', '#94A3B8'];
-    return Object.entries(counts).map(([name, value], idx) => ({
-      name,
-      value,
-      color: palette[idx % palette.length],
-    }));
-  }, [filteredStudies]);
+  const dateRangeLabel = {
+    '30d': 'Last 30 days',
+    '6m': 'Last 6 months',
+    '12m': 'Last 12 months',
+  };
 
   return (
     <DashboardLayout pageTitle="Analytics">
       <div className="space-y-6">
-        <div className="flex justify-end">
-          <Select value={range} onValueChange={(val: RangeOption) => setRange(val)}>
-            <SelectTrigger className="w-44">
-              <SelectValue placeholder="Select range" />
+        {/* Date Range Filter */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Calendar className="w-4 h-4" />
+            <span className="text-sm">Showing data for:</span>
+          </div>
+          <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="30d">Last 30 days</SelectItem>
@@ -148,24 +208,18 @@ const Analytics = () => {
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <KPICard
-            title="Total Scans Analyzed"
+            title="Total Scans"
             value={totalScans.toLocaleString()}
-            change={0}
-            changeLabel={`vs ${rangeLabel}`}
             icon={<Activity className="w-5 h-5" />}
           />
           <KPICard
-            title="AI Usage Rate"
-            value={`${aiUsageRate}%`}
-            change={0}
-            changeLabel={`vs ${rangeLabel}`}
+            title="AI Analyzed"
+            value={analyzedStudies.length.toString()}
             icon={<TrendingUp className="w-5 h-5" />}
           />
           <KPICard
-            title="Agreement Rate"
-            value={`${agreementRate || 0}%`}
-            change={0}
-            changeLabel={`vs ${rangeLabel}`}
+            title="Urgent Cases"
+            value={urgentCount.toString()}
             icon={<CheckCircle className="w-5 h-5" />}
           />
           <KPICard
@@ -177,106 +231,123 @@ const Analytics = () => {
 
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Accuracy Over Time */}
-          <div className="bg-card rounded-xl shadow-soft border border-border/30 p-5">
-            <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4">
-              Model Accuracy Over Time
-            </h3>
-            <div className="h-[250px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={accuracyOverTime}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="month" axisLine={false} tickLine={false} />
-                  <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="accuracy" stroke="#00A99D" strokeWidth={2} dot={{ fill: '#00A99D' }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
           {/* Disease Distribution */}
+          {diseaseDistribution.length > 0 && (
+            <div className="bg-card rounded-xl shadow-soft border border-border/30 p-5">
+              <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4">
+                Disease Distribution
+              </h3>
+              <div className="h-[250px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={diseaseDistribution}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={90}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      labelLine={false}
+                    >
+                      {diseaseDistribution.map((entry, index) => (
+                        <Cell key={index} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
+          {/* Modality Distribution */}
           <div className="bg-card rounded-xl shadow-soft border border-border/30 p-5">
             <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4">
-              Disease Distribution
+              Modality Distribution
             </h3>
             <div className="h-[250px]">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={diseaseDistribution}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    labelLine={false}
-                  >
-                    {diseaseDistribution.map((entry, index) => (
-                      <Cell key={index} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-
-        {/* Agreement Trend */}
-        <div className="bg-card rounded-xl shadow-soft border border-border/30 p-5">
-          <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4">
-            Radiologist–AI Agreement Trend
-          </h3>
-          <div className="h-[250px]">
-            {agreementData.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-muted-foreground">
-                No data for the selected period
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={agreementData}>
+                <BarChart data={[
+                  { name: 'X-ray', count: filteredStudies.filter(s => s.modality === 'X-ray').length },
+                  { name: 'CT', count: filteredStudies.filter(s => s.modality === 'CT').length },
+                  { name: 'MRI', count: filteredStudies.filter(s => s.modality === 'MRI').length },
+                ].filter(d => d.count > 0)}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="month" axisLine={false} tickLine={false} />
-                  <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
-                  <Tooltip
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        const data = payload[0].payload;
-                        const agreePctLabel = data.totalScans ? ((data.agreeCount / data.totalScans) * 100).toFixed(1) : '0';
-                        const disagreePctLabel = data.totalScans ? ((data.disagreeCount / data.totalScans) * 100).toFixed(1) : '0';
-                        return (
-                          <div className="bg-card border border-border rounded-lg shadow-medium p-3">
-                            <p className="text-xs text-muted-foreground">Month: {data.month}</p>
-                            <p className="text-sm text-foreground">Total scans: {data.totalScans}</p>
-                            <p className="text-sm text-secondary">
-                              Agree: {data.agreeCount} ({agreePctLabel}%)
-                            </p>
-                            <p className="text-sm text-primary">
-                              Disagree: {data.disagreeCount} ({disagreePctLabel}%)
-                            </p>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                  <Legend />
-                  <Bar dataKey="agreePct" name="Agree" stackId="a" fill="#00A99D" radius={[4, 4, 0, 0]}>
-                    <LabelList
-                      dataKey="totalScans"
-                      position="top"
-                      formatter={(value: number) => `N = ${value}`}
-                      className="text-xs fill-muted-foreground"
-                    />
-                  </Bar>
-                  <Bar dataKey="disagreePct" name="Disagree" stackId="a" fill="#030F4F" radius={[0, 0, 4, 4]} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                  <YAxis axisLine={false} tickLine={false} />
+                  <Tooltip />
+                  <Bar dataKey="count" name="Count" fill="#00A99D" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
-            )}
+            </div>
           </div>
         </div>
+
+        {/* Agreement Trend - Stacked Percentage Bar */}
+        {agreementTrendData.length > 0 && (
+          <div className="bg-card rounded-xl shadow-soft border border-border/30 p-5">
+            <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4">
+              Radiologist–AI Agreement Trend
+            </h3>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart 
+                  data={agreementTrendData} 
+                  margin={{ top: 25, right: 10, left: 0, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} />
+                  <YAxis 
+                    domain={[0, 100]} 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tickFormatter={(v) => `${v}%`}
+                    ticks={[0, 25, 50, 75, 100]}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend 
+                    verticalAlign="bottom" 
+                    height={36}
+                    formatter={(value) => <span className="text-sm">{value}</span>}
+                  />
+                  <Bar 
+                    dataKey="agreePercent" 
+                    name="Agree" 
+                    stackId="agreement" 
+                    fill="#00A99D" 
+                    radius={[0, 0, 0, 0]}
+                    label={({ x, y, width, index }) => {
+                      const data = agreementTrendData[index as number];
+                      if (!data || x === undefined || y === undefined || width === undefined) return null;
+                      return (
+                        <text 
+                          x={(x as number) + (width as number) / 2} 
+                          y={(y as number) - 8} 
+                          fill="#64748b" 
+                          textAnchor="middle" 
+                          fontSize={11}
+                        >
+                          N = {data.total}
+                        </text>
+                      );
+                    }}
+                  />
+                  <Bar 
+                    dataKey="disagreePercent" 
+                    name="Disagree" 
+                    stackId="agreement" 
+                    fill="#030F4F" 
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2 text-center">
+              Stacked bars show the percentage of radiologist agreement vs. disagreement per month
+            </p>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

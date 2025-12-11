@@ -8,9 +8,6 @@ import { FeedbackCard } from '@/components/viewer/FeedbackCard';
 import { UrgentBanner } from '@/components/viewer/UrgentBanner';
 import { ReportModal } from '@/components/viewer/ReportModal';
 import { useStudies } from '@/context/StudiesContext';
-import { Button } from '@/components/ui/button';
-import { FileText } from 'lucide-react';
-import { toast } from 'sonner';
 
 const Viewer = () => {
   const { studyId } = useParams();
@@ -18,60 +15,41 @@ const Viewer = () => {
   const { studies } = useStudies();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [reportModalOpen, setReportModalOpen] = useState(false);
-  const [feedbackChoice, setFeedbackChoice] = useState<'agree' | 'disagree' | null>(null);
-  const [feedbackNote, setFeedbackNote] = useState('');
 
   const study = studies.find((s) => s.id === studyId) || studies[0];
 
-  // Simulate analysis on first load or if study is marked as analyzing
+  // Simulate analysis on first load
   useEffect(() => {
-    if (!study) return;
-    if (study.status === 'New' || study.status === 'AI Analyzing') {
+    if (study?.status === 'New') {
       setIsAnalyzing(true);
       const timer = setTimeout(() => {
         setIsAnalyzing(false);
       }, 3000);
       return () => clearTimeout(timer);
     }
-    setIsAnalyzing(false);
-  }, [studyId, study?.status, study]);
-
-  useEffect(() => {
-    setFeedbackChoice(null);
-    setFeedbackNote('');
-    setReportModalOpen(false);
-  }, [studyId]);
-
-  const isUrgent = study?.priority === 'Urgent' && study.aiFindings?.severity === 'High';
-
-  const handleGenerateReport = () => {
-    if (!feedbackChoice) {
-      toast.error('Please record feedback before generating the report.');
-      return;
-    }
-
-    if (feedbackChoice === 'agree') {
-      setReportModalOpen(true);
-      return;
-    }
-
-    navigate(`/report/${study.id}`, { state: { feedbackNote } });
-  };
+  }, [studyId, study?.status]);
 
   if (!study) {
     return (
       <DashboardLayout pageTitle="Viewer">
-        <div className="bg-card border border-border/30 rounded-xl p-6 shadow-soft">
-          <p className="text-foreground font-semibold mb-2">No study selected</p>
-          <p className="text-muted-foreground mb-4">Please open a study from Recent Analyses or start a new analysis.</p>
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={() => navigate('/recent-analyses')}>Recent Analyses</Button>
-            <Button onClick={() => navigate('/')}>New Analysis</Button>
-          </div>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground">Study not found</p>
         </div>
       </DashboardLayout>
     );
   }
+
+  const isUrgent = study.priority === 'Urgent' && study.aiFindings?.severity === 'High';
+
+  const handleGenerateReport = (feedbackType: 'agree' | 'disagree' | null) => {
+    if (feedbackType === 'agree') {
+      // Open AI-prefilled report modal
+      setReportModalOpen(true);
+    } else if (feedbackType === 'disagree') {
+      // Navigate to manual report entry page
+      navigate(`/report/${study.id}`);
+    }
+  };
 
   return (
     <DashboardLayout 
@@ -102,31 +80,7 @@ const Viewer = () => {
               isAnalyzing={isAnalyzing}
             />
             {study.aiFindings && (
-              <>
-                <FeedbackCard
-                  selection={feedbackChoice}
-                  note={feedbackNote}
-                  onSelectionChange={setFeedbackChoice}
-                  onNoteChange={setFeedbackNote}
-                />
-                <div className="bg-card rounded-xl shadow-soft border border-border/30 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">Ready to finalize?</p>
-                      <p className="text-xs text-muted-foreground">
-                        Generate the report after recording your agreement or disagreement.
-                      </p>
-                    </div>
-                    <Button 
-                      onClick={handleGenerateReport}
-                      className="gap-2"
-                    >
-                      <FileText className="w-4 h-4" />
-                      Generate Report
-                    </Button>
-                  </div>
-                </div>
-              </>
+              <FeedbackCard onGenerateReport={handleGenerateReport} />
             )}
           </div>
         </div>

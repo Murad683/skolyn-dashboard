@@ -1,259 +1,285 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { useStudies } from '@/context/StudiesContext';
-import { Study, AIFindings } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { UploadCloud, Loader2, FileImage } from 'lucide-react';
-import { toast } from 'sonner';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Upload, FileImage, Loader2, CheckCircle, Sparkles } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useStudies } from '@/context/StudiesContext';
+import { Study, AIFindings } from '@/data/mockData';
 
-const allowedTypes = [
-  '.dcm',
-  '.nii',
-  '.h5',
-  '.png',
-  '.jpg',
-  '.jpeg',
-];
+type AnalysisStep = 'idle' | 'uploading' | 'analyzing' | 'complete';
 
-const randomChoice = <T,>(items: T[]) => items[Math.floor(Math.random() * items.length)];
-
-const generateFindings = (modality: Study['modality']): AIFindings => {
-  const diseases = ['Pneumonia', 'Tuberculosis', 'Pleural Effusion', 'Cardiomegaly'];
-  const primaryDisease = randomChoice(diseases);
-  const probability = Math.floor(Math.random() * 25) + 70;
-  const severity = probability > 85 ? 'High' : probability > 75 ? 'Medium' : 'Low';
+const generateAIFindings = (modality: string): AIFindings => {
+  const diseases = ['Pneumonia', 'Tuberculosis', 'Pleural Effusion', 'Cardiomegaly', 'Normal'];
+  const primaryDisease = diseases[Math.floor(Math.random() * diseases.length)];
+  const probability = Math.floor(Math.random() * 30) + 65;
 
   return {
     primaryDisease,
     probability,
-    severity,
-    confidence: Math.min(95, probability + 5),
+    severity: probability > 85 ? 'High' : probability > 70 ? 'Medium' : 'Low',
+    confidence: Math.floor(Math.random() * 15) + 80,
     secondaryFindings: [
       { name: 'Atelectasis', probability: Math.floor(Math.random() * 25) + 10 },
+      { name: 'Pleural Thickening', probability: Math.floor(Math.random() * 20) + 5 },
     ],
     explanations: [
-      'Pattern analysis indicates focal opacity in the lower lobe',
-      'Heatmap shows strong activation along the posterior segment',
-      'Texture distribution aligns with typical inflammatory changes',
-      'Minor secondary opacities present without effusion',
+      `AI-detected abnormality consistent with ${primaryDisease.toLowerCase()} pattern`,
+      'High activation regions identified in relevant anatomical zones',
+      'Texture and density analysis supports the primary finding',
+      'Pattern recognition indicates confidence in diagnosis',
     ],
-    contributingFeatures: ['Opacity pattern', 'Density variation', 'Posterior predominance'],
-    affectedZones: [
-      { zone: 'Right Lower', severity: 'High' },
-      { zone: 'Right Middle', severity: 'Moderate' },
-      { zone: 'Right Upper', severity: 'Normal' },
-      { zone: 'Left Upper', severity: 'Normal' },
-      { zone: 'Left Middle', severity: 'Normal' },
-      { zone: 'Left Lower', severity: 'Normal' },
-    ],
+    contributingFeatures: ['Opacity pattern', 'Density variation', 'Anatomical landmarks'],
+    affectedZones: probability > 70 ? ['Right Lower', 'Right Middle'] : ['Left Lower'],
   };
 };
 
 const Analyze = () => {
-  const { addStudy, updateStudy, studies } = useStudies();
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const [fileName, setFileName] = useState('');
-  const [fileChosen, setFileChosen] = useState<File | null>(null);
+  const { studies, addStudy, updateStudyStatus } = useStudies();
+  
+  const [file, setFile] = useState<File | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [analysisStep, setAnalysisStep] = useState<AnalysisStep>('idle');
+  
+  // Form fields
   const [patientId, setPatientId] = useState('');
   const [patientName, setPatientName] = useState('');
-  const [age, setAge] = useState<number | ''>('');
-  const [gender, setGender] = useState<'M' | 'F'>('M');
-  const [modality, setModality] = useState<Study['modality'] | ''>('');
-  const [phase, setPhase] = useState<'idle' | 'uploading' | 'analyzing'>('idle');
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState<'M' | 'F' | ''>('');
+  const [modality, setModality] = useState<'X-ray' | 'CT' | 'MRI' | ''>('');
+  const [bodyRegion, setBodyRegion] = useState('Chest');
+  const [priority, setPriority] = useState<'Routine' | 'Urgent'>('Routine');
 
-  const handleFileChange = (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const file = files[0];
-    setFileChosen(file);
-    setFileName(file.name);
+  // Auto-fill patient data when Patient ID changes
+  const handlePatientIdChange = (newPatientId: string) => {
+    setPatientId(newPatientId);
+    
+    if (!newPatientId.trim()) return;
+    
+    // Find the most recent study with this patient ID
+    const existingStudy = studies
+      .filter(s => s.patientId.toLowerCase() === newPatientId.toLowerCase())
+      .sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())[0];
+    
+    if (existingStudy) {
+      // Auto-fill patient demographics
+      setPatientName(existingStudy.patientName);
+      setAge(existingStudy.age.toString());
+      setGender(existingStudy.gender as 'M' | 'F');
+    }
   };
 
-  useEffect(() => {
-    const trimmedId = patientId.trim();
-    if (!trimmedId) return;
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  }, []);
 
-    const timeout = setTimeout(() => {
-      const matches = studies
-        .filter((s) => s.patientId === trimmedId)
-        .sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime());
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  }, []);
 
-      if (matches.length > 0) {
-        const latest = matches[0];
-        setPatientName(latest.patientName);
-        setAge(latest.age);
-        setGender(latest.gender);
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile) {
+      setFile(droppedFile);
+    }
+  }, []);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setFile(null);
+  };
+
+  const handleChangeFile = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.dcm,.nii,.h5,.png,.jpg,.jpeg';
+    input.onchange = (e) => {
+      const target = e.target as HTMLInputElement;
+      const selectedFile = target.files?.[0];
+      if (selectedFile) {
+        setFile(selectedFile);
       }
-    }, 200);
+    };
+    input.click();
+  };
 
-    return () => clearTimeout(timeout);
-  }, [patientId, studies]);
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+  };
 
-  const handleSubmit = () => {
-    if (!fileChosen) {
-      toast.error('Please select a study file to start analysis.');
-      return;
-    }
+  const handleStartAnalysis = async () => {
+    if (!file || !modality) return;
 
-    const trimmedId = patientId.trim();
-    if (!trimmedId) {
-      toast.error('Please enter a patient ID.');
-      return;
-    }
-
-    if (!modality) {
-      toast.error('Please select modality.');
-      return;
-    }
-
-    const studyId = `STU-${Date.now()}`;
-    const now = new Date().toISOString();
+    const studyId = `STU-${Date.now().toString(36).toUpperCase()}`;
+    
+    // Create new study with user-selected modality
     const newStudy: Study = {
       id: studyId,
-      patientId: trimmedId,
-      patientName: patientName || 'Unknown Patient',
-      age: typeof age === 'number' && !Number.isNaN(age) ? age : 55,
-      gender,
-      modality,
-      bodyRegion: 'Chest',
-      dateTime: now,
-      priority: 'Routine',
-      status: 'AI Analyzing',
+      patientId: patientId || `P-2024-${Math.floor(Math.random() * 9000) + 1000}`,
+      patientName: patientName || 'Anonymous Patient',
+      age: parseInt(age) || Math.floor(Math.random() * 50) + 25,
+      gender: gender || 'M',
+      modality: modality,
+      bodyRegion,
+      dateTime: new Date().toISOString(),
+      priority,
+      status: 'New',
       imageQuality: 'Good',
-      referralReason: 'Submitted via Analyze workflow',
-      clinicalNotes: 'Auto-generated via Analyze workflow.',
+      referralReason: 'Uploaded for AI analysis',
+      clinicalNotes: `Study uploaded via Skolyn Analyze portal. File: ${file.name}`,
       previousDiagnoses: [],
     };
 
     addStudy(newStudy);
-    setPhase('uploading');
 
-    setTimeout(() => {
-      setPhase('analyzing');
-    }, 800);
+    // Step 1: Uploading
+    setAnalysisStep('uploading');
+    await new Promise(resolve => setTimeout(resolve, 800));
 
-    setTimeout(() => {
-      updateStudy(studyId, (study) => ({
-        ...study,
-        status: 'AI Analyzed',
-        aiFindings: generateFindings(modality),
-      }));
-      toast.success('Analysis complete', {
-        description: `${newStudy.patientName} • ${newStudy.modality} ${newStudy.bodyRegion}`,
-      });
-      setPhase('idle');
-      navigate(`/viewer/${studyId}`);
-    }, 2300);
+    // Step 2: Analyzing
+    setAnalysisStep('analyzing');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Step 3: Complete - Generate AI findings
+    const aiFindings = generateAIFindings(modality);
+    updateStudyStatus(studyId, 'AI Analyzed', aiFindings);
+    
+    setAnalysisStep('complete');
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Navigate to viewer
+    navigate(`/viewer/${studyId}`);
   };
 
-  return (
-    <DashboardLayout pageTitle="Analyze" breadcrumb="New Analysis">
-      <div className="space-y-6">
+  const isFormValid = file !== null && modality !== '';
 
-        <Card className="shadow-soft border-border/40">
+  return (
+    <DashboardLayout pageTitle="Analyze" breadcrumb="Upload new study">
+      <div className="max-w-3xl mx-auto space-y-6">
+        {/* Upload Card */}
+        <Card className="border-border/50 shadow-soft">
           <CardHeader>
-            <CardTitle className="text-lg">Upload A New Study</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <Sparkles className="w-5 h-5 text-secondary" />
+              New Analysis
+            </CardTitle>
+            <CardDescription>
+              Upload a medical image file for AI-powered analysis
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div
-              className="border border-dashed border-secondary/50 rounded-lg p-6 bg-secondary/5 flex flex-col items-center justify-center gap-3 text-center"
-              onClick={() => fileInputRef.current?.click()}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  fileInputRef.current?.click();
-                }
-              }}
-            >
-              <UploadCloud className="w-10 h-10 text-secondary" />
-              <div>
-                <p className="font-semibold text-foreground">Drop your study file here</p>
-                <p className="text-sm text-muted-foreground">
-                  Supported: DICOM (.dcm), NIfTI (.nii), .h5, .png, .jpg
-                </p>
-              </div>
-              <div className="relative inline-flex">
+            {/* File Upload Zone */}
+            {!file ? (
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={cn(
+                  "relative border-2 border-dashed rounded-xl p-8 transition-all duration-200 text-center",
+                  isDragOver 
+                    ? "border-secondary bg-secondary/5" 
+                    : "border-border hover:border-secondary/50 hover:bg-muted/50",
+                  analysisStep !== 'idle' && "pointer-events-none opacity-60"
+                )}
+              >
                 <input
-                  ref={fileInputRef}
                   type="file"
-                  accept={allowedTypes.join(',')}
-                  className="hidden"
-                  onChange={(e) => handleFileChange(e.target.files)}
+                  accept=".dcm,.nii,.h5,.png,.jpg,.jpeg"
+                  onChange={handleFileChange}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  disabled={analysisStep !== 'idle'}
                 />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    fileInputRef.current?.click();
-                  }}
-                >
-                  Choose file
-                </Button>
-              </div>
-              {fileName && (
-                <div className="flex flex-col md:flex-row md:items-center md:gap-2 text-sm text-foreground bg-card border border-border/40 rounded-md px-3 py-2 w-full">
-                  <div className="flex items-center gap-2">
-                    <FileImage className="w-4 h-4 text-secondary" />
-                    <span className="break-all">{fileName}</span>
-                    <span className="text-muted-foreground text-xs">
-                      (~{Math.max(1, Math.round((fileChosen?.size || 0) / 1024))} KB)
-                    </span>
+                
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-14 h-14 rounded-xl bg-muted flex items-center justify-center">
+                    <Upload className="w-7 h-7 text-muted-foreground" />
                   </div>
-                  <div className="flex items-center gap-3 mt-2 md:mt-0 md:ml-auto">
+                  <div>
+                    <p className="font-medium text-foreground">
+                      Drop your file here or click to browse
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Supported: DICOM, NIfTI, .h5, PNG, JPG
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className={cn(
+                "border rounded-xl p-4 bg-secondary/5 border-secondary/30",
+                analysisStep !== 'idle' && "pointer-events-none opacity-60"
+              )}>
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center flex-shrink-0">
+                    <FileImage className="w-6 h-6 text-secondary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground truncate">{file.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatFileSize(file.size)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
                     <button
-                      className="text-xs text-secondary hover:underline"
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        fileInputRef.current?.click();
-                      }}
+                      onClick={handleChangeFile}
+                      disabled={analysisStep !== 'idle'}
+                      className="text-secondary hover:underline font-medium"
                     >
                       Change file
                     </button>
                     <button
-                      className="text-xs text-destructive hover:underline"
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setFileChosen(null);
-                        setFileName('');
-                        if (fileInputRef.current) fileInputRef.current.value = '';
-                      }}
+                      onClick={handleRemoveFile}
+                      disabled={analysisStep !== 'idle'}
+                      className="text-muted-foreground hover:text-destructive font-medium"
                     >
                       Remove
                     </button>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
+            {/* Metadata Form */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="patientId">Patient ID</Label>
                 <Input
                   id="patientId"
-                  placeholder="P-2024-0607"
+                  placeholder="e.g. P-2024-0607"
                   value={patientId}
-                  onChange={(e) => setPatientId(e.target.value)}
+                  onChange={(e) => handlePatientIdChange(e.target.value)}
+                  disabled={analysisStep !== 'idle'}
                 />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="patientName">Patient Name</Label>
                 <Input
                   id="patientName"
-                  placeholder="Jane Doe"
+                  placeholder="John D."
                   value={patientName}
                   onChange={(e) => setPatientName(e.target.value)}
+                  disabled={analysisStep !== 'idle'}
                 />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="age">Age</Label>
                 <Input
@@ -261,59 +287,119 @@ const Analyze = () => {
                   type="number"
                   placeholder="e.g. 67"
                   value={age}
-                  onChange={(e) => setAge(e.target.value ? Number(e.target.value) : '')}
+                  onChange={(e) => setAge(e.target.value)}
+                  disabled={analysisStep !== 'idle'}
                 />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="gender">Gender</Label>
-                <select
-                  id="gender"
-                  value={gender}
-                  onChange={(e) => setGender(e.target.value === 'M' ? 'M' : 'F')}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                <Select 
+                  value={gender} 
+                  onValueChange={(v) => setGender(v as 'M' | 'F')} 
+                  disabled={analysisStep !== 'idle'}
                 >
-                  <option value="M">Male</option>
-                  <option value="F">Female</option>
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="M">Male</SelectItem>
+                    <SelectItem value="F">Female</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="modality">Modality</Label>
-                <select
-                  id="modality"
-                  value={modality}
-                  onChange={(e) => setModality(e.target.value as Study['modality'])}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  required
+                <Label htmlFor="modality">
+                  Modality <span className="text-destructive">*</span>
+                </Label>
+                <Select 
+                  value={modality} 
+                  onValueChange={(v) => setModality(v as 'X-ray' | 'CT' | 'MRI')} 
+                  disabled={analysisStep !== 'idle'}
                 >
-                  <option value="">Select modality</option>
-                  <option value="X-ray">X-ray</option>
-                  <option value="CT">CT</option>
-                  <option value="MRI">MRI</option>
-                </select>
+                  <SelectTrigger className={cn(!modality && "text-muted-foreground")}>
+                    <SelectValue placeholder="Select modality" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="X-ray">X-ray</SelectItem>
+                    <SelectItem value="CT">CT</SelectItem>
+                    <SelectItem value="MRI">MRI</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="bodyRegion">Body Region</Label>
+                <Select value={bodyRegion} onValueChange={setBodyRegion} disabled={analysisStep !== 'idle'}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Chest">Chest</SelectItem>
+                    <SelectItem value="Abdomen">Abdomen</SelectItem>
+                    <SelectItem value="Head">Head</SelectItem>
+                    <SelectItem value="Spine">Spine</SelectItem>
+                    <SelectItem value="Extremity">Extremity</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3">
-              <Button
-                onClick={handleSubmit}
-                className="gap-2"
-                disabled={!fileChosen || !modality || !patientId.trim() || phase !== 'idle'}
-              >
-                {phase === 'idle' ? (
-                  <>
-                    <UploadCloud className="w-4 h-4" />
-                    Start Analysis
-                  </>
-                ) : (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Processing...
-                  </>
-                )}
-              </Button>
-            </div>
+            {!modality && file && (
+              <p className="text-sm text-amber-600 dark:text-amber-400">
+                Please select a modality to enable analysis.
+              </p>
+            )}
           </CardContent>
         </Card>
+
+        {/* Analysis Progress or Start Button */}
+        {analysisStep === 'idle' ? (
+          <Button
+            size="lg"
+            className="w-full gap-2"
+            disabled={!isFormValid}
+            onClick={handleStartAnalysis}
+          >
+            <Sparkles className="w-4 h-4" />
+            Start Analysis
+          </Button>
+        ) : (
+          <Card className="border-secondary/30 bg-secondary/5">
+            <CardContent className="py-6">
+              <div className="flex items-center gap-4">
+                {analysisStep === 'complete' ? (
+                  <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center">
+                    <Loader2 className="w-5 h-5 text-secondary animate-spin" />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <p className="font-medium text-foreground">
+                    {analysisStep === 'uploading' && 'Uploading file...'}
+                    {analysisStep === 'analyzing' && 'Running AI analysis...'}
+                    {analysisStep === 'complete' && 'Analysis complete!'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {analysisStep === 'uploading' && 'Preparing your study for analysis'}
+                    {analysisStep === 'analyzing' && 'Analyzing across 127 clinical indicators'}
+                    {analysisStep === 'complete' && 'Redirecting to results...'}
+                  </p>
+                </div>
+              </div>
+              
+              {analysisStep === 'analyzing' && (
+                <div className="mt-4 h-2 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-secondary rounded-full animate-pulse" style={{ width: '60%' }} />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </DashboardLayout>
   );

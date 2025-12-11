@@ -5,7 +5,7 @@ import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { Monitor, Brain, User, Save, LogOut } from 'lucide-react';
+import { Monitor, Brain, User, Save, Lock } from 'lucide-react';
 
 const Settings = () => {
   const [heatmapOpacity, setHeatmapOpacity] = useState([50]);
@@ -14,12 +14,6 @@ const Settings = () => {
 
   const handleSave = () => {
     toast.success('Settings saved successfully');
-  };
-
-  const handleSignOut = () => {
-    toast.success('Signed out (demo)', {
-      description: 'Session ended for demo purposes.',
-    });
   };
 
   return (
@@ -72,24 +66,49 @@ const Settings = () => {
                 ))}
               </div>
             </div>
-
           </div>
         </div>
 
-        {/* AI Model */}
+        {/* AI Model - Read Only */}
         <div className="bg-card rounded-xl shadow-soft border border-border/30 p-6">
           <div className="flex items-center gap-2 mb-6">
             <Brain className="w-5 h-5 text-secondary" />
             <h3 className="text-lg font-semibold text-foreground">AI Model</h3>
+            <Badge variant="outline" className="ml-auto gap-1 text-muted-foreground">
+              <Lock className="w-3 h-3" />
+              Read-only
+            </Badge>
           </div>
 
           <div className="space-y-4">
             <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">Current model</p>
-              <p className="text-lg font-semibold text-foreground">Skolyn Sko-16</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Chest imaging classifier with explainable outputs and calibrated probabilities.
-              </p>
+              <label className="text-sm font-medium text-foreground mb-3 block">
+                Current Model
+              </label>
+              <div className="p-4 rounded-lg border-2 border-secondary bg-secondary/5">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-foreground">Rhenium OS</span>
+                  <Badge variant="secondary">Active</Badge>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Latest stable release with improved pneumonia detection and multi-modal support
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground mb-2 block">
+                Release Notes
+              </label>
+              <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
+                <p className="font-medium text-foreground mb-2">Rhenium OS Release Notes:</p>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>Improved pneumonia detection accuracy by 8%</li>
+                  <li>Reduced false positive rate for pleural effusion</li>
+                  <li>Enhanced heatmap resolution and coverage</li>
+                  <li>New support for lateral chest X-ray views</li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
@@ -134,19 +153,11 @@ const Settings = () => {
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-3 flex-wrap">
+        {/* Save Button */}
+        <div className="flex justify-end">
           <Button onClick={handleSave} className="gap-2">
             <Save className="w-4 h-4" />
             Save Settings
-          </Button>
-          <Button
-            variant="outline"
-            className="gap-2 text-destructive border-destructive/50 hover:bg-destructive/10"
-            onClick={handleSignOut}
-          >
-            <LogOut className="w-4 h-4" />
-            Sign out
           </Button>
         </div>
       </div>

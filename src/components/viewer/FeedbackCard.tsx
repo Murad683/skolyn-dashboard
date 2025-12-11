@@ -1,36 +1,35 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { MessageSquare, ThumbsUp, ThumbsDown, Send } from 'lucide-react';
+import { MessageSquare, ThumbsUp, ThumbsDown, Send, FileText } from 'lucide-react';
 
 interface FeedbackCardProps {
-  selection: 'agree' | 'disagree' | null;
-  note: string;
-  onSelectionChange: (selection: 'agree' | 'disagree' | null) => void;
-  onNoteChange: (note: string) => void;
+  onGenerateReport?: (feedbackType: 'agree' | 'disagree' | null) => void;
 }
 
-export function FeedbackCard({
-  selection,
-  note,
-  onSelectionChange,
-  onNoteChange,
-}: FeedbackCardProps) {
+export function FeedbackCard({ onGenerateReport }: FeedbackCardProps) {
+  const [feedback, setFeedback] = useState<'agree' | 'disagree' | null>(null);
+  const [note, setNote] = useState('');
 
   const handleSubmit = () => {
-    if (!selection) {
+    if (!feedback) {
       toast.error('Please select Agree or Disagree first');
       return;
     }
     
     toast.success('Feedback sent to model training', {
-      description: `Your ${selection === 'agree' ? 'agreement' : 'disagreement'} has been recorded.`,
+      description: `Your ${feedback === 'agree' ? 'agreement' : 'disagreement'} has been recorded.`,
     });
-    
-    // Reset after submission
-    onSelectionChange(null);
-    onNoteChange('');
+  };
+
+  const handleGenerateReport = () => {
+    if (!feedback) {
+      toast.error('Please provide feedback before generating report');
+      return;
+    }
+    onGenerateReport?.(feedback);
   };
 
   return (
@@ -45,20 +44,20 @@ export function FeedbackCard({
       {/* Agreement Buttons */}
       <div className="flex gap-3 mb-4">
         <Button
-          variant={selection === 'agree' ? 'secondary' : 'outline'}
+          variant={feedback === 'agree' ? 'secondary' : 'outline'}
           className={cn(
             "flex-1 gap-2",
-            selection === 'agree' && "shadow-glow"
+            feedback === 'agree' && "shadow-glow"
           )}
-          onClick={() => onSelectionChange('agree')}
+          onClick={() => setFeedback('agree')}
         >
           <ThumbsUp className="w-4 h-4" />
           Agree with AI
         </Button>
         <Button
-          variant={selection === 'disagree' ? 'destructive' : 'outline'}
+          variant={feedback === 'disagree' ? 'destructive' : 'outline'}
           className="flex-1 gap-2"
-          onClick={() => onSelectionChange('disagree')}
+          onClick={() => setFeedback('disagree')}
         >
           <ThumbsDown className="w-4 h-4" />
           Disagree with AI
@@ -69,20 +68,31 @@ export function FeedbackCard({
       <Textarea
         placeholder="Add a note or correction..."
         value={note}
-        onChange={(e) => onNoteChange(e.target.value)}
+        onChange={(e) => setNote(e.target.value)}
         className="mb-4 min-h-[80px] resize-none"
       />
 
-      {/* Submit Button */}
-      <div className="flex justify-end">
+      {/* Action Buttons */}
+      <div className="flex flex-col gap-3">
         <Button
-          variant="secondary"
+          variant="outline"
           size="sm"
           onClick={handleSubmit}
-          className="gap-2"
+          className="gap-2 w-full"
+          disabled={!feedback}
         >
           <Send className="w-3.5 h-3.5" />
           Send feedback to model training
+        </Button>
+        
+        <Button
+          variant="default"
+          onClick={handleGenerateReport}
+          className="gap-2 w-full"
+          disabled={!feedback}
+        >
+          <FileText className="w-4 h-4" />
+          Generate Report
         </Button>
       </div>
     </div>

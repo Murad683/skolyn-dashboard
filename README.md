@@ -1,29 +1,36 @@
-# Skolyn – Radiology AI Dashboard
+# Skolyn Dashboard
 
-Skolyn is an explainable AI dashboard for radiologists. Upload studies, review AI findings, compare historical scans, and track agreement metrics in one place.
+Skolyn is an explainable AI dashboard for radiologists, featuring image upload, AI-assisted findings, comparison tools, and analytics.
 
-## Tech Stack
-- React + TypeScript
-- Vite
-- Tailwind CSS
-- Radix UI primitives
+## Tech stack
+- React + TypeScript (Vite)
+- Tailwind CSS + shadcn/ui
+- React Router, React Query, Recharts, Radix primitives
 
-## Getting Started
-1) Install dependencies
-```bash
+## Getting started
+1) Install dependencies:
+```sh
 npm install
 ```
-2) Run the dev server
-```bash
+2) Start the dev server:
+```sh
 npm run dev
 ```
-The app runs at http://localhost:8080 by default.
+3) Build for production:
+```sh
+npm run build
+```
+4) Preview the production build:
+```sh
+npm run preview
+```
 
-## Available Scripts
-- `npm run dev` – start the development server
-- `npm run build` – build for production
-- `npm run lint` – run lint checks
+## Project scripts
+- `npm run dev` – start Vite dev server
+- `npm run build` – production build
+- `npm run lint` – lint the project
+- `npm run preview` – preview the production build
 
 ## Notes
-- Data is mock/in-memory; new studies are added via the Analyze page.
-- No external branding or template references remain in the project.
+- Environment variables can be added via `.env` files using the `VITE_` prefix.
+- Assets placed in `public/` are served at the site root.

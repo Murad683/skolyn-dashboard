@@ -1,23 +1,24 @@
+import { PastScan } from '@/data/mockData';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Calendar, Activity } from 'lucide-react';
 
-export interface ComparisonScan {
-  id: string;
-  date: string;
-  modality: string;
-  bodyRegion: string;
-  aiScore?: number;
-  disease: string;
-}
-
 interface PastScansTimelineProps {
-  scans: ComparisonScan[];
+  scans: PastScan[];
   selectedScan: string | null;
   onSelectScan: (id: string) => void;
 }
 
 export function PastScansTimeline({ scans, selectedScan, onSelectScan }: PastScansTimelineProps) {
+  const getSeverityVariant = (severity: PastScan['severity']) => {
+    switch (severity) {
+      case 'Low': return 'low';
+      case 'Medium': return 'medium';
+      case 'High': return 'high';
+      default: return 'neutral';
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
@@ -26,21 +27,17 @@ export function PastScansTimeline({ scans, selectedScan, onSelectScan }: PastSca
     });
   };
 
-  const orderedScans = [...scans].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
-
   return (
     <div className="bg-card rounded-xl shadow-soft border border-border/30 p-5 h-full animate-fade-in">
       <div className="flex items-center gap-2 mb-4">
         <Calendar className="w-5 h-5 text-secondary" />
         <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">
-          Scan History
+          Past Scans
         </h3>
       </div>
 
       <div className="space-y-2">
-        {orderedScans.map((scan, index) => (
+        {scans.map((scan, index) => (
           <div
             key={scan.id}
             onClick={() => onSelectScan(scan.id)}
@@ -52,7 +49,7 @@ export function PastScansTimeline({ scans, selectedScan, onSelectScan }: PastSca
             )}
           >
             {/* Timeline connector */}
-            {index < orderedScans.length - 1 && (
+            {index < scans.length - 1 && (
               <div className="absolute left-6 top-full w-0.5 h-2 bg-border" />
             )}
 
@@ -67,40 +64,36 @@ export function PastScansTimeline({ scans, selectedScan, onSelectScan }: PastSca
                     {formatDate(scan.date)}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {scan.modality} • {scan.bodyRegion}
+                    {scan.modality}
                   </p>
                 </div>
               </div>
-              <Badge variant="info" className="text-xs">
-                {scan.disease}
+              <Badge variant={getSeverityVariant(scan.severity)} className="text-xs">
+                {scan.severity}
               </Badge>
             </div>
 
             <div className="ml-6 mt-2 flex items-center gap-2">
               <Activity className="w-3.5 h-3.5 text-muted-foreground" />
-              {typeof scan.aiScore === 'number' ? (
-                <>
-                  <span className="text-xs font-semibold text-secondary">
-                    {scan.aiScore}%
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    AI probability
-                  </span>
-                </>
-              ) : (
-                <span className="text-xs text-muted-foreground">Not measured</span>
-              )}
+              <span className="text-xs text-muted-foreground">
+                {scan.disease}
+              </span>
+              <span className="text-xs font-semibold text-secondary">
+                {scan.aiScore}%
+              </span>
             </div>
 
             {/* Score change indicator */}
-            {index < orderedScans.length - 1 ? (
-              <div className="ml-6 mt-1 text-xs text-muted-foreground">
-                {typeof scan.aiScore === 'number' && typeof orderedScans[index + 1].aiScore === 'number'
-                  ? `${scan.aiScore >= orderedScans[index + 1].aiScore ? '↑' : '↓'} ${Math.abs(scan.aiScore - orderedScans[index + 1].aiScore)}% from previous`
-                  : 'No previous comparison'}
+            {index > 0 && (
+              <div className="ml-6 mt-1">
+                <span className={cn(
+                  "text-xs font-medium",
+                  scans[index - 1].aiScore > scan.aiScore ? "text-success" : "text-destructive"
+                )}>
+                  {scans[index - 1].aiScore > scan.aiScore ? '↓' : '↑'} 
+                  {' '}{Math.abs(scans[index - 1].aiScore - scan.aiScore)}% from previous
+                </span>
               </div>
-            ) : (
-              <div className="ml-6 mt-1 text-xs text-muted-foreground">Baseline scan</div>
             )}
           </div>
         ))}

@@ -1,38 +1,40 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
-import { mockStudies, Study } from '@/data/mockData';
+import { Study, AIFindings } from '@/data/mockData';
 
-interface StudiesContextValue {
+interface StudiesContextType {
   studies: Study[];
   addStudy: (study: Study) => void;
-  updateStudy: (id: string, updater: (study: Study) => Study) => void;
+  updateStudyStatus: (studyId: string, status: Study['status'], aiFindings?: AIFindings) => void;
 }
 
-const StudiesContext = createContext<StudiesContextValue | undefined>(undefined);
+const StudiesContext = createContext<StudiesContextType | undefined>(undefined);
 
 export function StudiesProvider({ children }: { children: ReactNode }) {
   const [studies, setStudies] = useState<Study[]>([]);
 
   const addStudy = (study: Study) => {
-    setStudies((prev) => [study, ...prev]);
+    setStudies(prev => [study, ...prev]);
   };
 
-  const updateStudy = (id: string, updater: (study: Study) => Study) => {
-    setStudies((prev) =>
-      prev.map((study) => (study.id === id ? updater(study) : study))
-    );
+  const updateStudyStatus = (studyId: string, status: Study['status'], aiFindings?: AIFindings) => {
+    setStudies(prev => prev.map(s => 
+      s.id === studyId 
+        ? { ...s, status, ...(aiFindings ? { aiFindings } : {}) }
+        : s
+    ));
   };
 
   return (
-    <StudiesContext.Provider value={{ studies, addStudy, updateStudy }}>
+    <StudiesContext.Provider value={{ studies, addStudy, updateStudyStatus }}>
       {children}
     </StudiesContext.Provider>
   );
 }
 
-export const useStudies = () => {
+export function useStudies() {
   const context = useContext(StudiesContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useStudies must be used within a StudiesProvider');
   }
   return context;
-};
+}

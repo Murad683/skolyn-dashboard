@@ -4,13 +4,9 @@ import { ZoomIn, ZoomOut, Move, Contrast } from 'lucide-react';
 interface DualViewerProps {
   currentDate: string;
   pastDate?: string;
-  showSingleNote?: boolean;
-  diseaseName?: string;
-  currentScore?: number;
-  pastScore?: number;
 }
 
-export function DualViewer({ currentDate, pastDate, showSingleNote = false, diseaseName, currentScore, pastScore }: DualViewerProps) {
+export function DualViewer({ currentDate, pastDate }: DualViewerProps) {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
@@ -19,16 +15,11 @@ export function DualViewer({ currentDate, pastDate, showSingleNote = false, dise
     });
   };
 
-  const renderViewer = (label: string, showPathology: boolean = false, score?: number) => (
+  const renderViewer = (label: string, showPathology: boolean = false) => (
     <div className="relative bg-slate-900 rounded-lg overflow-hidden">
       {/* Label */}
       <div className="absolute top-3 left-3 z-10 bg-slate-800/90 px-3 py-1 rounded text-xs text-slate-300">
         {label}
-        {diseaseName && (
-          <div className="text-[10px] text-slate-300/80 mt-0.5">
-            {diseaseName}{typeof score === 'number' ? ` • ${score}%` : ''}
-          </div>
-        )}
       </div>
 
       {/* Image */}
@@ -108,16 +99,14 @@ export function DualViewer({ currentDate, pastDate, showSingleNote = false, dise
     <div className="bg-card rounded-xl shadow-soft border border-border/30 p-4 animate-fade-in">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Current Scan */}
-        {renderViewer(`Current – ${formatDate(currentDate)}`, true, currentScore)}
+        {renderViewer(`Current – ${formatDate(currentDate)}`, true)}
 
         {/* Past Scan */}
         {pastDate ? (
-          renderViewer(`Previous – ${formatDate(pastDate)}`, false, pastScore)
+          renderViewer(`Past – ${formatDate(pastDate)}`, false)
         ) : (
-          <div className="bg-muted/50 rounded-lg aspect-[4/5] flex items-center justify-center text-center px-6">
-            <p className="text-sm text-muted-foreground">
-              {showSingleNote ? 'Only one scan available for comparison' : 'Select a past scan to compare'}
-            </p>
+          <div className="bg-muted/50 rounded-lg aspect-[4/5] flex items-center justify-center">
+            <p className="text-sm text-muted-foreground">Select a past scan to compare</p>
           </div>
         )}
       </div>
